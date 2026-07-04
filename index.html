@@ -123,6 +123,10 @@ body{background:var(--bg);color:var(--t);font-family:-apple-system,sans-serif;he
       <button class="btn bg" onclick="clrc()">CLEAR</button>
       <button class="btn bp" id="scanbtn" disabled onclick="scanDraw()">SCAN</button>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--m);font-family:monospace;padding:2px 2px 4px">
+      <input type="checkbox" id="narrowChk" style="width:16px;height:16px">
+      Учитывать сужение диапазона (флаг/треугольник)
+    </label>
   </div>
   <!-- RESULTS -->
   <div class="pane" id="pane-res">
@@ -132,6 +136,18 @@ body{background:var(--bg);color:var(--t);font-family:-apple-system,sans-serif;he
   </div>
 </div>
 <div id="fixbtn"><button class="btn" onclick="scanLibrary()">RUN SCAN</button></div>
+<div id="chartModal" style="display:none;position:fixed;inset:0;background:rgba(3,5,9,.97);z-index:999;flex-direction:column;padding:14px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0">
+    <div>
+      <div id="modalTitle" style="font-family:monospace;font-weight:700;color:var(--a);font-size:15px"></div>
+      <div id="modalSub" style="font-family:monospace;color:var(--m);font-size:10px;margin-top:2px"></div>
+    </div>
+    <div onclick="closeChartModal()" style="cursor:pointer;color:var(--t);font-family:monospace;font-weight:700;padding:8px 14px;background:var(--s2);border:1px solid var(--b);border-radius:7px;font-size:12px">CLOSE</div>
+  </div>
+  <div style="flex:1;position:relative;background:#0a0f1a;border-radius:8px;border:1px solid var(--b);overflow:hidden">
+    <canvas id="modalCanvas" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+  </div>
+</div>
 
 <script>
 // ---- DATA ----
@@ -156,25 +172,25 @@ const P=[
 {c:'REVERSAL BEAR',n:'Bearish Engulfing',d:'Sharp reversal after uptrend.',sig:'s',sh:[.1,.35,.6,.85,1,.5,.15,0]},
 {c:'REVERSAL BEAR',n:'False Breakout',d:'Fake break above resistance then drop.',sig:'s',sh:[.45,.7,.9,1,.85,.45,.15,0]},
 {c:'REVERSAL BEAR',n:'Shooting Star',d:'Spike up then reversal down.',sig:'s',sh:[.2,.5,.85,1,.75,.4,.1,0]},
-{c:'CONTINUATION BULL',n:'Bull Flag',d:'Rally, tight consolidation, continuation.',sig:'b',sh:[0,.45,.85,.7,.6,.65,.72,.68,.65,.9,1]},
-{c:'CONTINUATION BULL',n:'Bull Pennant',d:'Sharp rally, compression, breakout.',sig:'b',sh:[0,.5,1,.82,.62,.72,.67,.8,1]},
-{c:'CONTINUATION BULL',n:'Ascending Triangle',d:'Flat resistance + rising lows.',sig:'b',sh:[.25,.95,.4,.95,.55,.95,.7,.95,1]},
-{c:'CONTINUATION BULL',n:'Falling Wedge',d:'Down-sloping wedge before rally.',sig:'b',sh:[.85,.65,.75,.5,.65,.4,.55,.3,.7,1]},
+{c:'CONTINUATION BULL',n:'Bull Flag',d:'Rally, tight consolidation, continuation.',sig:'b',narrow:true,sh:[0,.45,.85,.7,.6,.65,.72,.68,.65,.9,1]},
+{c:'CONTINUATION BULL',n:'Bull Pennant',d:'Sharp rally, compression, breakout.',sig:'b',narrow:true,sh:[0,.5,1,.82,.62,.72,.67,.8,1]},
+{c:'CONTINUATION BULL',n:'Ascending Triangle',d:'Flat resistance + rising lows.',sig:'b',narrow:true,sh:[.25,.95,.4,.95,.55,.95,.7,.95,1]},
+{c:'CONTINUATION BULL',n:'Falling Wedge',d:'Down-sloping wedge before rally.',sig:'b',narrow:true,sh:[.85,.65,.75,.5,.65,.4,.55,.3,.7,1]},
 {c:'CONTINUATION BULL',n:'Ascending Channel',d:'Steady uptrend in channel.',sig:'b',sh:[0,.12,.22,.32,.42,.52,.62,.72,.82,.92,1]},
 {c:'CONTINUATION BULL',n:'Bull Consolidation',d:'Rally, sideways, then rally.',sig:'b',sh:[0,.3,.65,.72,.67,.72,.68,.72,.9,1]},
 {c:'CONTINUATION BULL',n:'Staircase Up',d:'Step-by-step rise.',sig:'b',sh:[0,.22,.42,.42,.42,.62,.62,.62,.82,1]},
 {c:'CONTINUATION BULL',n:'Breakout Up',d:'Long sideways then breaks up.',sig:'b',sh:[.5,.52,.5,.52,.5,.52,.5,.52,.72,1]},
-{c:'CONTINUATION BEAR',n:'Bear Flag',d:'Drop, tight consolidation, continuation.',sig:'s',sh:[1,.58,.3,.42,.36,.42,.32,.38,.22,0]},
-{c:'CONTINUATION BEAR',n:'Bear Pennant',d:'Sharp drop, compression, breakout.',sig:'s',sh:[1,.5,0,.22,.4,.3,.42,.22,0]},
-{c:'CONTINUATION BEAR',n:'Descending Triangle',d:'Flat support + lower highs.',sig:'s',sh:[.82,.08,.62,.08,.52,.08,.32,.08,0]},
-{c:'CONTINUATION BEAR',n:'Rising Wedge',d:'Up-sloping wedge before drop.',sig:'s',sh:[.2,.42,.3,.52,.42,.62,.52,.72,.32,0]},
+{c:'CONTINUATION BEAR',n:'Bear Flag',d:'Drop, tight consolidation, continuation.',sig:'s',narrow:true,sh:[1,.58,.3,.42,.36,.42,.32,.38,.22,0]},
+{c:'CONTINUATION BEAR',n:'Bear Pennant',d:'Sharp drop, compression, breakout.',sig:'s',narrow:true,sh:[1,.5,0,.22,.4,.3,.42,.22,0]},
+{c:'CONTINUATION BEAR',n:'Descending Triangle',d:'Flat support + lower highs.',sig:'s',narrow:true,sh:[.82,.08,.62,.08,.52,.08,.32,.08,0]},
+{c:'CONTINUATION BEAR',n:'Rising Wedge',d:'Up-sloping wedge before drop.',sig:'s',narrow:true,sh:[.2,.42,.3,.52,.42,.62,.52,.72,.32,0]},
 {c:'CONTINUATION BEAR',n:'Descending Channel',d:'Steady downtrend in channel.',sig:'s',sh:[1,.88,.78,.68,.58,.48,.38,.28,.18,.08,0]},
 {c:'CONTINUATION BEAR',n:'Breakout Down',d:'Long sideways then breaks down.',sig:'s',sh:[.5,.48,.5,.48,.5,.48,.5,.48,.3,0]},
 {c:'CONTINUATION BEAR',n:'Staircase Down',d:'Step-by-step drop.',sig:'s',sh:[1,.78,.58,.58,.58,.38,.38,.38,.18,0]},
-{c:'CONSOLIDATION',n:'Symmetric Triangle',d:'Compression. Break any direction.',sig:'n',sh:[.12,.88,.28,.72,.45,.6,.6,.52,.52]},
+{c:'CONSOLIDATION',n:'Symmetric Triangle',d:'Compression. Break any direction.',sig:'n',narrow:true,sh:[.12,.88,.28,.72,.45,.6,.6,.52,.52]},
 {c:'CONSOLIDATION',n:'Rectangle',d:'Clear range between two levels.',sig:'n',sh:[.5,1,.5,1,.5,1,.5,0,.5,0,.5]},
 {c:'CONSOLIDATION',n:'Sideways',d:'Price moves horizontally.',sig:'n',sh:[.5,.52,.48,.52,.5,.52,.48,.52,.5]},
-{c:'CONSOLIDATION',n:'Narrowing Wedge',d:'Decreasing volatility.',sig:'n',sh:[.12,.88,.28,.72,.42,.62,.5,.58,.52]},
+{c:'CONSOLIDATION',n:'Narrowing Wedge',d:'Decreasing volatility.',sig:'n',narrow:true,sh:[.12,.88,.28,.72,.42,.62,.5,.58,.52]},
 {c:'CONSOLIDATION',n:'Expanding Wedge',d:'Increasing volatility.',sig:'n',sh:[.5,.5,.4,.62,.35,.68,.28,.74,.2,.82]},
 {c:'CONSOLIDATION',n:'Accumulation',d:'Long flat low-volatility range.',sig:'n',sh:[.5,.54,.48,.52,.5,.53,.49,.51,.5]},
 {c:'CONSOLIDATION',n:'High Base',d:'Rally then long consolidation at highs.',sig:'n',sh:[0,.4,.82,.9,1,.9,.88,.92,.9]},
@@ -193,7 +209,7 @@ const P=[
 {c:'SPECIAL',n:'Upthrust',d:'Fake break above then reversal.',sig:'s',sh:[.5,.72,.62,.82,.72,.92,1,.85,.6,.3,0]},
 {c:'SPECIAL',n:'3 White Soldiers',d:'Three strong consecutive closes up.',sig:'b',sh:[0,.32,.28,.58,.52,.78,.72,1]},
 {c:'SPECIAL',n:'3 Black Crows',d:'Three strong consecutive closes down.',sig:'s',sh:[1,.68,.72,.42,.48,.22,.28,0]},
-{c:'SPECIAL',n:'High Tight Flag',d:'Sharp rally then tight consolidation.',sig:'b',sh:[0,.5,.92,.86,.92,.86,.92,.86,.92,1]},
+{c:'SPECIAL',n:'High Tight Flag',d:'Sharp rally then tight consolidation.',sig:'b',narrow:true,sh:[0,.5,.92,.86,.92,.86,.92,.86,.92,1]},
 {c:'ELLIOTT',n:'Impulse Wave Up',d:'Classic 5-wave bull trend.',sig:'b',sh:[0,.12,.32,.22,.52,.42,.72,.62,1]},
 {c:'ELLIOTT',n:'Impulse Wave Down',d:'Classic 5-wave bear trend.',sig:'s',sh:[1,.88,.68,.78,.48,.58,.28,.38,0]},
 {c:'ELLIOTT',n:'ABC Correction Up',d:'3-wave correction before rally.',sig:'b',sh:[1,.62,.82,.42,.62,.32,.52,.72,1]},
@@ -253,7 +269,7 @@ function fp(){
   document.getElementById('plist').innerHTML=Object.entries(cats).map(([cat,ps])=>
     `<div class="cat-lbl">${cat}</div><div class="pgrid">${ps.map(p=>`
     <div class="pc${selP===p.i?' on':''}" onclick="selPat(${p.i})">
-      <span class="psig ${p.sig}">${p.sig==='b'?'LONG':p.sig==='s'?'SHORT':'NEUTRAL'}</span>
+      <span class="psig ${p.sig}">${p.sig==='b'?'LONG':p.sig==='s'?'SHORT':'NEUTRAL'}</span>${p.narrow?'<span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;background:rgba(61,142,255,.12);color:var(--a);font-family:monospace;margin-left:4px">СУЖЕНИЕ</span>':''}
       ${svg(p.sh,p.sig)}
       <div class="pn">${p.n}</div>
       <div class="pd">${p.d}</div>
@@ -353,7 +369,7 @@ function ptsNorm(p,len=120){
 }
 
 // ---- DTW с окном Сакое-Чиба ----
-function dtw(a,b,w=30){
+function dtw(a,b,w=45){
   const n=a.length,m=b.length;
   const dp=Array.from({length:n},()=>new Float32Array(m).fill(Infinity));
   dp[0][0]=Math.abs(a[0]-b[0]);
@@ -366,34 +382,53 @@ function dtw(a,b,w=30){
 }
 
 // Скользящее окно — ищем паттерн в разных участках графика
-function bestMatch(pat,candles){
+function bestMatch(pat,candles,narrow=false){
   const closes=candles.map(c=>c.c);
   const L=pat.length;
-  const winSizes=[40,50,60,70,80];
+  const winSizes=[30,35,40,45,50,55,60,65,70,75,80,85,90];
   let best=0;
   for(const win of winSizes){
     if(closes.length<win)continue;
-    for(let i=Math.max(0,closes.length-win-20);i<=closes.length-Math.floor(win*.7);i++){
+    const startI=Math.max(0,closes.length-win-30);
+    const endI=closes.length-Math.floor(win*.5);
+    for(let i=startI;i<=endI;i++){
       const slice=closes.slice(i,i+win);
       const n=norm(slice,L);
-      const score=Math.max(0,1-dtw(pat,n)/L*1.2);
+      let score=Math.max(0,1-dtw(pat,n)/L*0.75);
+      if(narrow)score=Math.min(1,score*compressionBonus(candles,i,win));
       if(score>best)best=score;
     }
   }
-  // также сравниваем весь массив
   const full=norm(closes,L);
-  const fullScore=Math.max(0,1-dtw(pat,full)/L*1.2);
+  let fullScore=Math.max(0,1-dtw(pat,full)/L*0.75);
+  if(narrow)fullScore=Math.min(1,fullScore*compressionBonus(candles,0,candles.length));
   return Math.max(best,fullScore);
+}
+
+function segRange(seg){
+  let hi=-Infinity,lo=Infinity;
+  for(const c of seg){if(c.h>hi)hi=c.h;if(c.l<lo)lo=c.l;}
+  return (hi-lo)||1e-9;
+}
+const NARROW_THRESHOLD=0.8;
+function compressionBonus(candles,i,win){
+  const seg=candles.slice(i,i+win);
+  const third=Math.max(1,Math.floor(win/3));
+  const firstR=segRange(seg.slice(0,third));
+  const lastR=segRange(seg.slice(seg.length-third));
+  const ratio=lastR/firstR;
+  if(ratio>NARROW_THRESHOLD)return 0;
+  return 1+(NARROW_THRESHOLD-ratio)*0.8;
 }
 
 // ---- SYMBOLS ----
 const SYM=['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','ADAUSDT','DOGEUSDT','AVAXUSDT','DOTUSDT','MATICUSDT','LINKUSDT','UNIUSDT','ATOMUSDT','LTCUSDT','NEARUSDT','APTUSDT','ARBUSDT','OPUSDT','INJUSDT','SUIUSDT','SEIUSDT','TIAUSDT','WLDUSDT','STXUSDT','RUNEUSDT','JUPUSDT','ENAUSDT','MNTUSDT','LDOUSDT','AAVEUSDT','MKRUSDT','CRVUSDT','GMXUSDT','SANDUSDT','FETUSDT','RENDERUSDT','THETAUSDT','FLOWUSDT','IMXUSDT','GALAUSDT','FTMUSDT','ALGOUSDT','EGLDUSDT','XTZUSDT','AXSUSDT','MANAUSDT','ENJUSDT','CHZUSDT','ZILUSDT','IOTAUSDT'];
 
-async function fetchC(sym,interval,limit=100){
+async function fetchC(sym,interval,limit=150){
   try{
     const r=await fetch(`https://api.bybit.com/v5/market/kline?symbol=${sym}&interval=${interval}&limit=${limit}&category=linear`);
     const d=await r.json();
-    if(d.result?.list?.length>0)return d.result.list.reverse().map(c=>({c:parseFloat(c[4])}));
+    if(d.result?.list?.length>0)return d.result.list.reverse().map(c=>({c:parseFloat(c[4]),o:parseFloat(c[1]),h:parseFloat(c[2]),l:parseFloat(c[3])}));
   }catch(e){}
   return null;
 }
@@ -413,8 +448,7 @@ function miniChart(c,closes,col){
   ctx.beginPath();p.forEach((pt,i)=>i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));ctx.strokeStyle=col;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
 }
 
-async function runScan(patNorm,title){
-  // switch to results
+async function runScan(patNorm,title,narrow=false){
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
   document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on'));
   document.querySelector('[data-p="res"]').classList.add('on');
@@ -427,20 +461,22 @@ async function runScan(patNorm,title){
 
   const results=[];let done=0;
   await Promise.all(SYM.map(async sym=>{
-    const candles=await fetchC(sym,tf,100);
+    const candles=await fetchC(sym,tf,150);
     done++;
     if(done%10===0)setStat(`Loading... ${done}/${SYM.length}`,true);
     if(!candles||candles.length<20)return;
-    const score=bestMatch(patNorm,candles);
+    const score=bestMatch(patNorm,candles,narrow);
     const closes=candles.map(c=>c.c);
     const chg=((closes[closes.length-1]-closes[0])/closes[0]*100).toFixed(2);
-    results.push({sym,score,closes,price:closes[closes.length-1],chg:parseFloat(chg)});
+    results.push({sym,score,closes,candles,price:closes[closes.length-1],chg:parseFloat(chg)});
   }));
 
   results.sort((a,b)=>b.score-a.score);
-  const top=results.slice(0,20);
+  const top=results.slice(0,30);
   setStat(`Done — ${top.length} matches from ${SYM.length} pairs`,false);
   document.getElementById('rcnt').textContent=top.length;
+  window.__resMap={};
+  top.forEach(r=>window.__resMap[r.sym]=r);
 
   if(!top.length){
     document.getElementById('cards').innerHTML='<div class="empty"><div class="ei">[ --- ]</div><p>No matches found</p></div>';
@@ -449,39 +485,98 @@ async function runScan(patNorm,title){
 
   document.getElementById('cards').innerHTML=top.map(r=>{
     const pct=Math.round(r.score*100);
-    const sc=pct>=75?'h':pct>=55?'m':'l';
-    const col=pct>=75?'#00d4aa':pct>=55?'#3d8eff':'#4a5568';
+    const sc=pct>=65?'h':pct>=45?'m':'l';
+    const col=pct>=65?'#00d4aa':pct>=45?'#3d8eff':'#4a5568';
     const base=r.sym.replace('USDT','');
     const chgc=r.chg>=0?'up':'dn';
     const chgs=(r.chg>=0?'+':'')+r.chg+'%';
     const pr=r.price<1?r.price.toFixed(5):r.price<10?r.price.toFixed(4):r.price<1000?r.price.toFixed(2):r.price.toFixed(0);
-    return`<div class="rc">
+    return`<div class="rc" onclick="openChart('${r.sym}')" style="cursor:pointer">
       <div class="rc-top">
         <div><div class="rc-name">${base}</div><div class="rc-pair">${r.sym} &middot; ${tf==='D'?'1D':tf+'m'}</div></div>
         <div><div class="sc-num ${sc}">${pct}%</div><div class="sc-lbl">match</div></div>
       </div>
       <div class="sc-bar"><div class="sc-fill" style="width:${pct}%;background:${col}"></div></div>
       <div class="mc"><canvas id="mc_${r.sym}"></canvas></div>
-      <div class="rm"><span>$${pr}</span><span class="${chgc}">${chgs}</span><span style="margin-left:auto">${r.closes.length} candles</span></div>
+      <div class="rm"><span>$${pr}</span><span class="${chgc}">${chgs}</span><span style="margin-left:auto">${r.closes.length} candles &middot; tap for chart</span></div>
     </div>`;
   }).join('');
 
   top.forEach(r=>{
     requestAnimationFrame(()=>{
       const c=document.getElementById('mc_'+r.sym);
-      if(c){const pct=Math.round(r.score*100);miniChart(c,r.closes,pct>=75?'#00d4aa':pct>=55?'#3d8eff':'#4a5568');}
+      if(c){const pct=Math.round(r.score*100);miniChart(c,r.closes,pct>=65?'#00d4aa':pct>=45?'#3d8eff':'#4a5568');}
     });
   });
 }
 
 function scanLibrary(){
   if(selP===null){alert('Select a pattern first');return;}
-  runScan(norm(P[selP].sh,120),P[selP].n);
+  runScan(norm(P[selP].sh,120),P[selP].n,!!P[selP].narrow);
 }
 function scanDraw(){
   if(pts.length<10)return;
-  runScan(ptsNorm(pts,120),'Custom Pattern');
+  const narrow=document.getElementById('narrowChk').checked;
+  runScan(ptsNorm(pts,120),'Custom Pattern',narrow);
 }
+
+// ---- FULL CANDLESTICK CHART MODAL ----
+function drawCandles(canvas,candles){
+  const dpr=window.devicePixelRatio||1;
+  const cssW=canvas.clientWidth,cssH=canvas.clientHeight;
+  canvas.width=cssW*dpr;canvas.height=cssH*dpr;
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,cssW,cssH);
+  const n=candles.length;
+  if(n<2)return;
+  const highs=candles.map(c=>c.h),lows=candles.map(c=>c.l);
+  const mx=Math.max(...highs),mn=Math.min(...lows),rng=(mx-mn)||1;
+  const padT=14,padB=14;
+  const chartH=cssH-padT-padB;
+  ctx.strokeStyle='#1a2436';ctx.lineWidth=1;
+  [0.25,0.5,0.75].forEach(f=>{ctx.beginPath();ctx.moveTo(0,padT+chartH*f);ctx.lineTo(cssW,padT+chartH*f);ctx.stroke();});
+  const candleW=cssW/n;
+  const bodyW=Math.max(1,candleW*0.62);
+  const y=v=>padT+(1-(v-mn)/rng)*chartH;
+  candles.forEach((c,i)=>{
+    const x=i*candleW+candleW/2;
+    const up=c.c>=c.o;
+    const col=up?'#00d4aa':'#ff4d6d';
+    ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,y(c.h));ctx.lineTo(x,y(c.l));ctx.stroke();
+    const yo=y(c.o),yc=y(c.c);
+    const top=Math.min(yo,yc),h=Math.max(1,Math.abs(yc-yo));
+    ctx.fillRect(x-bodyW/2,top,bodyW,h);
+  });
+  const last=candles[candles.length-1].c;
+  ctx.fillStyle=candles[candles.length-1].c>=candles[candles.length-1].o?'#00d4aa':'#ff4d6d';
+  ctx.font='11px monospace';
+  const lastY=y(last);
+  ctx.beginPath();ctx.setLineDash([2,3]);ctx.strokeStyle=ctx.fillStyle;ctx.moveTo(0,lastY);ctx.lineTo(cssW,lastY);ctx.stroke();ctx.setLineDash([]);
+}
+
+function openChart(sym){
+  const r=window.__resMap&&window.__resMap[sym];
+  if(!r)return;
+  document.getElementById('modalTitle').textContent=sym.replace('USDT','')+' / USDT';
+  const pct=Math.round(r.score*100);
+  document.getElementById('modalSub').textContent=`${tf==='D'?'1D':tf+'m'} · match ${pct}% · ${r.candles.length} candles`;
+  const modal=document.getElementById('chartModal');
+  modal.style.display='flex';
+  requestAnimationFrame(()=>drawCandles(document.getElementById('modalCanvas'),r.candles));
+}
+function closeChartModal(){
+  document.getElementById('chartModal').style.display='none';
+}
+window.addEventListener('resize',()=>{
+  const modal=document.getElementById('chartModal');
+  if(modal.style.display==='flex'){
+    const title=document.getElementById('modalTitle').textContent;
+    const sym=Object.keys(window.__resMap||{}).find(s=>title.startsWith(s.replace('USDT','')));
+    if(sym)drawCandles(document.getElementById('modalCanvas'),window.__resMap[sym].candles);
+  }
+});
 </script>
 </body>
 </html>
